@@ -40,7 +40,7 @@ function App(): React.JSX.Element {
         <div className="brand">
           <div className="brand-icon">F</div>
           <div>
-            <h1>FocusSentinel</h1>
+            <h1>FocusSentinel AI</h1>
             <span>INTELLIGENCE FOR EVERYDAY LIFE</span>
           </div>
         </div>
@@ -90,18 +90,17 @@ function App(): React.JSX.Element {
         <div className="page-content">
           <section className="welcome-section">
             <div>
-              <span className="eyebrow">YOUR PERSONAL AWARENESS SPACE</span>
+              <span className="eyebrow">FOCUSSENTINEL AI · YOUR PERSONAL AWARENESS PLATFORM</span>
               <h2>{activePage === 'Overview' ? 'Stay aware. Stay in control.' : activePage}</h2>
               <p>Intelligent awareness for everyday living. Assistance when it matters most.</p>
             </div>
             <div className="date-chip">● YOUR PRIVATE WORKSPACE</div>
           </section>
-
           {activePage === 'Overview' && (
             <>
               <section className="hero-card">
                 <div className="hero-copy">
-                  <span className="hero-tag">FOCUS SENSE</span>
+                  <span className="hero-tag">FOCUSSENSE MODULE</span>
                   <h3>Make room for your best work.</h3>
                   <p>Start a focus session and create space for intentional, uninterrupted work.</p>
                   <button className="primary-button" onClick={() => setActivePage('FocusSense')}>
@@ -111,7 +110,7 @@ function App(): React.JSX.Element {
                 <div className="hero-orbit">
                   <div className="orbit orbit-one" />
                   <div className="orbit orbit-two" />
-                  <div className="orbit-core">F</div>
+                  <div className="orbit-core">FS</div>
                   <span className="orbit-label">AWARENESS</span>
                 </div>
               </section>
