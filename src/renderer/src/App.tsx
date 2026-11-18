@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import SignalMonitor from './components/SignalMonitor'
 
 type Page = 'Overview' | 'FocusSense' | 'Sentinel Safety' | 'Signal Monitor' | 'Privacy Centre'
 
@@ -248,31 +249,7 @@ function App(): React.JSX.Element {
             </section>
           )}
 
-          {activePage === 'Signal Monitor' && (
-            <section className="module-layout">
-              <article className="info-card signal-card">
-                <span className="eyebrow">PRESAGE SMARTSPECTRA</span>
-                <div className="large-status">
-                  <span className="status-dot offline" />
-                  Not connected
-                </div>
-                <h3>Signal monitoring is not active.</h3>
-                <p>
-                  The application has not connected to the Presage SDK yet. No live biometric or
-                  physiological signals are displayed.
-                </p>
-                <span className="status-pill">Integration pending</span>
-              </article>
-              <article className="info-card">
-                <span className="card-label">INTEGRATION PLAN</span>
-                <h3>What comes next?</h3>
-                <p>
-                  SDK setup, camera permission, live signal acquisition and transparent signal
-                  presentation.
-                </p>
-              </article>
-            </section>
-          )}
+          {activePage === 'Signal Monitor' && <SignalMonitor />}
 
           {activePage === 'Privacy Centre' && (
             <section className="privacy-grid">

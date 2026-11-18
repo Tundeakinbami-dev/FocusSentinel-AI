@@ -1,7 +1,21 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { bindSmartSpectraIpc } from '@smartspectra/node-sdk/main'
+import dotenv from 'dotenv'
+
+dotenv.config()
 import icon from '../../resources/icon.png?asset'
+
+ipcMain.handle('smartspectra:get-api-key', () => {
+  const apiKey = process.env.SMARTSPECTRA_API_KEY
+
+  if (!apiKey) {
+    throw new Error('SmartSpectra API key is not configured.')
+  }
+
+  return apiKey
+})
 
 function createWindow(): void {
   // Create the browser window.
@@ -16,6 +30,8 @@ function createWindow(): void {
       sandbox: false
     }
   })
+
+  bindSmartSpectraIpc(mainWindow)
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
@@ -50,7 +66,33 @@ app.whenReady().then(() => {
   })
 
   // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
+ session.defaultSession.setPermissionRequestHandler(
+   (webContents, permission, callback, details: Electron.MediaAccessPermissionRequest) => {
+     const requestingUrl = details.requestingUrl || webContents.getURL()
+
+     let isTrustedDevPage = false
+
+     try {
+       const configuredDevUrl = process.env['ELECTRON_RENDERER_URL']
+
+       if (is.dev && configuredDevUrl) {
+         const requestingOrigin = new URL(requestingUrl).origin
+         const trustedOrigin = new URL(configuredDevUrl).origin
+
+         isTrustedDevPage = requestingOrigin === trustedOrigin
+       }
+     } catch {
+       isTrustedDevPage = false
+     }
+
+     const isAppPage = requestingUrl.startsWith('file://') || isTrustedDevPage
+
+     const isCameraRequest =
+       permission === 'media' && details.mediaTypes?.includes('video') === true
+
+     callback(isAppPage && isCameraRequest)
+   }
+ )
 
   createWindow()
 

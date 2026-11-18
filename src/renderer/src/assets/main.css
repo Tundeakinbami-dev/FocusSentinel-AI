@@ -617,3 +617,124 @@ nav {
     margin-right: 0;
   }
 }
+
+/* SmartSpectra Signal Monitor */
+
+.signal-monitor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.85fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.signal-monitor-layout .signal-card {
+  min-height: 280px;
+}
+
+.signal-actions {
+  margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.signal-actions button {
+  margin-top: 0;
+  padding: 0 19px;
+  cursor: pointer;
+}
+
+.signal-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.signal-preview-card {
+  min-width: 0;
+}
+
+.signal-video {
+  display: block;
+  width: 100%;
+  min-height: 190px;
+  max-height: 260px;
+  margin-top: 16px;
+  border: 1px solid #344456;
+  border-radius: 9px;
+  background: #080e16;
+  object-fit: cover;
+  filter: brightness(1.8) contrast(1.15);
+}
+
+.signal-readings-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.signal-reading {
+  min-width: 0;
+  padding: 21px;
+  border: 1px solid #243140;
+  border-radius: 13px;
+  background: #121b27;
+}
+
+.signal-reading-value {
+  margin-top: 18px;
+  color: #6de2bd;
+  font-size: 27px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.signal-reading-value span {
+  margin-left: 6px;
+  color: #8999aa;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.signal-reading-meta {
+  margin-top: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: #a0b0bb;
+  font-size: 10px;
+}
+
+.signal-reading-waiting {
+  margin-top: 12px;
+  color: #8999aa;
+  font-size: 10px;
+  line-height: 1.7;
+}
+
+.signal-error {
+  margin-top: 18px !important;
+  padding: 12px;
+  border: 1px solid #713f48;
+  border-radius: 8px;
+  background: #38232c;
+  color: #ffb0b0 !important;
+}
+
+.signal-disclaimer {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 800px) {
+  .signal-monitor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .signal-readings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .signal-disclaimer {
+    grid-column: auto;
+  }
+}
