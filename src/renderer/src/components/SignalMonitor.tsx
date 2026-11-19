@@ -44,6 +44,7 @@ function getLatestReading(
 function SignalMonitor(): React.JSX.Element {
   const sdkRef = useRef<SmartSpectraSDK | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const mediaStreamRef = useRef<MediaStream | null>(null)
 
   const [status, setStatus] = useState('Not connected')
   const [isStarting, setIsStarting] = useState(false)
@@ -59,6 +60,11 @@ function SignalMonitor(): React.JSX.Element {
 
   useEffect(() => {
     return () => {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop())
+        mediaStreamRef.current = null
+      }
+
       const sdk = sdkRef.current
       sdkRef.current = null
 
@@ -133,22 +139,7 @@ function SignalMonitor(): React.JSX.Element {
       })
 
       sdk.on('streamAvailable', (stream) => {
-        const videoTrack = stream.getVideoTracks()[0]
-        const settings = videoTrack?.getSettings()
-        const capabilities = videoTrack?.getCapabilities()
-        const cameraControls = capabilities as Record<string, unknown> | undefined
-
-        console.info('FocusSentinel camera diagnostics:', {
-          currentSettings: settings,
-          supportedControls: {
-            brightness: cameraControls?.brightness,
-            contrast: cameraControls?.contrast,
-            exposureMode: cameraControls?.exposureMode,
-            exposureCompensation: cameraControls?.exposureCompensation,
-            exposureTime: cameraControls?.exposureTime,
-            whiteBalanceMode: cameraControls?.whiteBalanceMode
-          }
-        })
+        mediaStreamRef.current = stream
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream
@@ -159,52 +150,45 @@ function SignalMonitor(): React.JSX.Element {
         }
       })
 
-      // Count packets across metrics events.
-      let metricsPacketCount = 0
-
-      sdk.on('metrics', (buffer, timestampUs) => {
-        console.info('[SmartSpectra] Metrics received:', {
-          byteLength: buffer.length,
-          timestampUs
-        })
-
+      sdk.on('metrics', (buffer) => {
         try {
           const metrics = decodeMetrics(buffer)
-
-          metricsPacketCount += 1
-
-          // Log a snapshot every 100 decoded packets.
-          if (metricsPacketCount <= 3) {
-            console.info('[SmartSpectra] Decoded metric snapshot:', {
-              breathingRateCount: metrics.breathing?.rate?.length ?? 0,
-              latestBreathing:
-                metrics.breathing?.rate?.[(metrics.breathing?.rate?.length ?? 0) - 1] ?? null,
-
-              pulseRateCount: metrics.cardio?.pulseRate?.length ?? 0,
-              latestPulse:
-                metrics.cardio?.pulseRate?.[(metrics.cardio?.pulseRate?.length ?? 0) - 1] ?? null,
-
-              hrvCount: metrics.cardio?.hrv?.length ?? 0,
-              latestHrv: metrics.cardio?.hrv?.[(metrics.cardio?.hrv?.length ?? 0) - 1] ?? null
-            })
-          }
 
           const latestHrv = metrics.cardio?.hrv
 
           const hrvSample =
             latestHrv && latestHrv.length > 0 ? latestHrv[latestHrv.length - 1] : null
 
+          const latestBreathing = getLatestReading(metrics.breathing?.rate)
+          const latestPulse = getLatestReading(metrics.cardio?.pulseRate)
+          const latestHrvReading = hrvSample
+            ? {
+                value: hrvSample.rmssd ?? null,
+                confidence: hrvSample.confidence ?? null,
+                stable: hrvSample.stable ?? null
+              }
+            : null
+
           setReadings({
-            breathingRate: getLatestReading(metrics.breathing?.rate),
-            pulseRate: getLatestReading(metrics.cardio?.pulseRate),
-            hrv: hrvSample
-              ? {
-                  value: hrvSample.rmssd ?? null,
-                  confidence: hrvSample.confidence ?? null,
-                  stable: hrvSample.stable ?? null
-                }
-              : null
+            breathingRate: latestBreathing,
+            pulseRate: latestPulse,
+            hrv: latestHrvReading
           })
+
+          setSignalHistory((prev) => ({
+            breathingRate:
+              latestBreathing?.value != null
+                ? [...prev.breathingRate, latestBreathing.value].slice(-20)
+                : prev.breathingRate,
+            pulseRate:
+              latestPulse?.value != null
+                ? [...prev.pulseRate, latestPulse.value].slice(-20)
+                : prev.pulseRate,
+            hrv:
+              latestHrvReading?.value != null
+                ? [...prev.hrv, latestHrvReading.value].slice(-20)
+                : prev.hrv
+          }))
         } catch (caughtError) {
           console.error('[SmartSpectra] Metrics decoding failed:', caughtError)
 
@@ -230,6 +214,11 @@ function SignalMonitor(): React.JSX.Element {
       setError(message)
       setStatus('Not connected')
 
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop())
+        mediaStreamRef.current = null
+      }
+
       const sdk = sdkRef.current
       sdkRef.current = null
 
@@ -254,6 +243,11 @@ function SignalMonitor(): React.JSX.Element {
     } catch {
       setError('The monitoring session did not stop cleanly.')
     } finally {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop())
+        mediaStreamRef.current = null
+      }
+
       sdk.destroy()
       sdkRef.current = null
 
@@ -267,80 +261,93 @@ function SignalMonitor(): React.JSX.Element {
     }
   }
 
-  const formatValue = (value: number | null): string => {
-    return value === null ? 'Waiting for data' : value.toFixed(1)
-  }
-
   const renderReading = (
     label: string,
     reading: Reading | null,
-    unit: string
-  ): React.JSX.Element => (
-    <article className="signal-reading">
-      <span className="card-label">{label}</span>
+    unit: string,
+    history: number[],
+    type: 'breathing' | 'pulse' | 'hrv'
+  ): React.JSX.Element => {
+    const isActive = reading?.value !== null && reading?.value !== undefined
 
-      <div className="signal-reading-value">
-        {formatValue(reading?.value ?? null)}
-        {reading?.value !== null && reading?.value !== undefined && <span>{unit}</span>}
-      </div>
+    const renderGraph = (): React.JSX.Element => {
+      if (history.length === 0) {
+        return (
+          <div className="signal-dynamic-chart-wrapper is-waiting">
+            <svg
+              viewBox="0 0 300 65"
+              className="signal-dynamic-chart"
+              role="img"
+              aria-label={`${label} waiting for data`}
+            >
+              <line
+                x1="0"
+                y1="32.5"
+                x2="300"
+                y2="32.5"
+                stroke="rgba(78, 232, 197, 0.3)"
+                strokeWidth="2"
+                strokeDasharray="6 4"
+              />
+            </svg>
+          </div>
+        )
+      }
 
-      {reading ? (
-        <div className="signal-reading-meta">
-          <span>
-            Confidence:{' '}
-            {reading.confidence === null ? 'Not available' : `${reading.confidence.toFixed(0)}%`}
-          </span>
+      const min = Math.min(...history)
+      const max = Math.max(...history)
+      const range = max - min || 1
 
-          <span>
-            {reading.stable === null
-              ? 'Stability unknown'
-              : reading.stable
-                ? 'Stable'
-                : 'Not yet stable'}
-          </span>
-        </div>
-      ) : (
-        <p className="signal-reading-waiting">A reading will appear when the SDK provides one.</p>
-      )}
-    </article>
-  )
+      const points = history
+        .map((value, index) => {
+          const x = history.length === 1 ? 150 : (index / (history.length - 1)) * 300
+          const y = 55 - ((value - min) / range) * 45
+          return `${x.toFixed(1)},${y.toFixed(1)}`
+        })
+        .join(' ')
 
-  const renderTrend = (label: string, values: number[]): React.JSX.Element => {
-    if (values.length === 0) {
       return (
-        <article className="signal-trend-card">
-          <span className="card-label">{label}</span>
-          <p className="signal-reading-waiting">Waiting for simulated samples</p>
-        </article>
+        <div className="signal-dynamic-chart-wrapper">
+          <svg
+            viewBox="0 0 300 65"
+            className="signal-dynamic-chart"
+            role="img"
+            aria-label={`${label} real-time graph`}
+          >
+            <polyline
+              points={points}
+              fill="none"
+              stroke="#4ee8c5"
+              strokeWidth="2.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
       )
     }
 
-    const min = Math.min(...values)
-    const max = Math.max(...values)
-    const range = max - min || 1
-
-    const points = values
-      .map((value, index) => {
-        const x = values.length === 1 ? 150 : (index / (values.length - 1)) * 300
-        const y = 70 - ((value - min) / range) * 60
-        return `${x},${y}`
-      })
-      .join(' ')
-
     return (
-      <article className="signal-trend-card">
-        <span className="card-label">{label}</span>
-        <svg viewBox="0 0 300 80" role="img" aria-label={`${label} simulated trend`}>
-          <polyline
-            points={points}
-            fill="none"
-            stroke="#6de2bd"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-        <span className="signal-trend-count">{values.length} samples</span>
+      <article className={`signal-reading reading-${type} ${isActive ? 'is-active' : ''}`}>
+        <div className="signal-reading-header">
+          <span className="card-label">{label}</span>
+        </div>
+
+        {renderGraph()}
+
+        <div className="signal-reading-value">
+          {isActive ? (
+            <>
+              {reading.value?.toFixed(1)} <span>{unit}</span>
+            </>
+          ) : (
+            'Waiting for data'
+          )}
+        </div>
+
+        {!isActive && (
+          <p className="signal-reading-waiting">A reading will appear when the SDK provides one.</p>
+        )}
       </article>
     )
   }
@@ -418,23 +425,33 @@ function SignalMonitor(): React.JSX.Element {
 
       <div className="signal-readings-grid">
         {(isSimulating || status === 'Simulation stopped') && (
-          <div className="signal-error">
+          <div className="signal-error signal-simulated-banner">
             SIMULATED DATA: These values are generated for development testing only. They are not
             live physiological measurements.
           </div>
         )}
-        {renderReading('BREATHING RATE', readings.breathingRate, 'br/min')}
-        {renderReading('PULSE RATE', readings.pulseRate, 'bpm')}
-        {renderReading('HEART RATE VARIABILITY · RMSSD', readings.hrv, 'ms')}
+        {renderReading(
+          'BREATHING RATE',
+          readings.breathingRate,
+          'br/min',
+          signalHistory.breathingRate,
+          'breathing'
+        )}
+        {renderReading(
+          'PULSE RATE',
+          readings.pulseRate,
+          'bpm',
+          signalHistory.pulseRate,
+          'pulse'
+        )}
+        {renderReading(
+          'HEART RATE VARIABILITY · RMSSD',
+          readings.hrv,
+          'ms',
+          signalHistory.hrv,
+          'hrv'
+        )}
       </div>
-
-      {(isSimulating || status === 'Simulation stopped') && (
-        <div className="signal-trends-grid">
-          {renderTrend('BREATHING RATE TREND · SIMULATED', signalHistory.breathingRate)}
-          {renderTrend('PULSE RATE TREND · SIMULATED', signalHistory.pulseRate)}
-          {renderTrend('HRV TREND · SIMULATED', signalHistory.hrv)}
-        </div>
-      )}
 
       <article className="info-card signal-disclaimer">
         <span className="card-label">UNDERSTANDING THESE READINGS</span>

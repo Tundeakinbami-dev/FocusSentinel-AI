@@ -1,7 +1,17 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
 
 require('@smartspectra/node-sdk/preload')
+
+// Safe, restricted subset of electron metadata (excluding raw ipcRenderer and process.env)
+const safeElectron = {
+  process: {
+    versions: {
+      node: process.versions.node,
+      chrome: process.versions.chrome,
+      electron: process.versions.electron
+    }
+  }
+}
 
 // Custom APIs for renderer
 const api = {
@@ -9,19 +19,14 @@ const api = {
     ipcRenderer.invoke('smartspectra:get-api-key')
 }
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
+// Ensure context isolation is active before exposing APIs
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
+    contextBridge.exposeInMainWorld('electron', safeElectron)
     contextBridge.exposeInMainWorld('api', api)
   } catch (error) {
-    console.error(error)
+    console.error('[Security] Failed to expose contextBridge APIs:', error)
   }
 } else {
-  // @ts-ignore (define in dts)
-  window.electron = electronAPI
-  // @ts-ignore (define in dts)
-  window.api = api
+  throw new Error('[Security] FocusSentinel requires context isolation to be enabled.')
 }

@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: focus-sentinel-temp
+appId: com.focustellisense.ai
+productName: FocusTellisense AI
 directories:
   buildResources: build
 files:
@@ -12,19 +12,17 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: focus-sentinel-temp
+  executableName: focustellisense-ai
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+    - NSCameraUsageDescription: Application requests access to the device camera for physiological signal measurement.
   notarize: false
 dmg:
   artifactName: ${name}-${version}.${ext}
@@ -33,11 +31,10 @@ linux:
     - AppImage
     - snap
     - deb
-  maintainer: electronjs.org
+  maintainer: focustellisense.ai
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-publish:
-  provider: generic
-  url: https://example.com/auto-updates
+# Auto-update provider is disabled until a production release server is configured
+publish: null

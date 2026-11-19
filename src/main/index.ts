@@ -17,8 +17,20 @@ ipcMain.handle('smartspectra:get-api-key', () => {
   return apiKey
 })
 
+function isAuthorizedOrigin(requestingUrl: string): boolean {
+  try {
+    const configuredDevUrl = process.env['ELECTRON_RENDERER_URL']
+    if (is.dev && configuredDevUrl) {
+      return new URL(requestingUrl).origin === new URL(configuredDevUrl).origin
+    }
+    return requestingUrl.startsWith('file://')
+  } catch {
+    return false
+  }
+}
+
 function createWindow(): void {
-  // Create the browser window.
+  // Create the browser window with hardened security settings.
   const mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
@@ -27,7 +39,11 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false
     }
   })
 
@@ -37,9 +53,33 @@ function createWindow(): void {
     mainWindow.show()
   })
 
+  // Validate protocol before opening any URL in external browser
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    try {
+      const parsedUrl = new URL(details.url)
+      if (parsedUrl.protocol === 'https:' || parsedUrl.protocol === 'http:') {
+        shell.openExternal(details.url)
+      } else {
+        console.warn(`[Security] Blocked external open request with unsafe protocol: ${parsedUrl.protocol}`)
+      }
+    } catch {
+      console.warn(`[Security] Blocked malformed URL in setWindowOpenHandler: ${details.url}`)
+    }
     return { action: 'deny' }
+  })
+
+  // Block in-app navigation away from application content
+  mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+    if (!isAuthorizedOrigin(navigationUrl)) {
+      event.preventDefault()
+      console.warn(`[Security] Blocked unauthorized in-app navigation to: ${navigationUrl}`)
+    }
+  })
+
+  // Prevent attachment of untrusted webview tags
+  mainWindow.webContents.on('will-attach-webview', (event) => {
+    event.preventDefault()
+    console.warn('[Security] Denied attempt to attach webview element.')
   })
 
   // HMR for renderer base on electron-vite cli.
@@ -53,46 +93,43 @@ function createWindow(): void {
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.focustellisense.ai')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
-  // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // IPC test
- session.defaultSession.setPermissionRequestHandler(
-   (webContents, permission, callback, details: Electron.MediaAccessPermissionRequest) => {
-     const requestingUrl = details.requestingUrl || webContents.getURL()
+  // Strict camera-only permission request handler (rejecting microphone/audio)
+  session.defaultSession.setPermissionRequestHandler(
+    (webContents, permission, callback, details: Electron.MediaAccessPermissionRequest) => {
+      const requestingUrl = details.requestingUrl || webContents.getURL()
+      const isAppPage = isAuthorizedOrigin(requestingUrl)
 
-     let isTrustedDevPage = false
+      // Only allow video camera requests from authorized pages; strictly deny audio
+      const isOnlyCameraRequest =
+        permission === 'media' &&
+        details.mediaTypes?.includes('video') === true &&
+        details.mediaTypes?.includes('audio') !== true
 
-     try {
-       const configuredDevUrl = process.env['ELECTRON_RENDERER_URL']
+      callback(isAppPage && isOnlyCameraRequest)
+    }
+  )
 
-       if (is.dev && configuredDevUrl) {
-         const requestingOrigin = new URL(requestingUrl).origin
-         const trustedOrigin = new URL(configuredDevUrl).origin
-
-         isTrustedDevPage = requestingOrigin === trustedOrigin
-       }
-     } catch {
-       isTrustedDevPage = false
-     }
-
-     const isAppPage = requestingUrl.startsWith('file://') || isTrustedDevPage
-
-     const isCameraRequest =
-       permission === 'media' && details.mediaTypes?.includes('video') === true
-
-     callback(isAppPage && isCameraRequest)
-   }
- )
+  // Strict permission check handler
+  session.defaultSession.setPermissionCheckHandler(
+    (webContents, permission, requestingOrigin, details) => {
+      if (permission === 'media') {
+        const mediaType = (details as { mediaType?: string })?.mediaType
+        if (mediaType === 'audio') return false
+        return isAuthorizedOrigin(requestingOrigin || webContents?.getURL() || '')
+      }
+      return false
+    }
+  )
 
   createWindow()
 

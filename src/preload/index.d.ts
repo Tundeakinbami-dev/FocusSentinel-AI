@@ -1,4 +1,12 @@
-import { ElectronAPI } from '@electron-toolkit/preload'
+interface SafeElectronAPI {
+  process: {
+    versions: {
+      node?: string
+      chrome?: string
+      electron?: string
+    }
+  }
+}
 
 interface FocusSentinelAPI {
   getSmartSpectraApiKey: () => Promise<string>
@@ -6,7 +14,9 @@ interface FocusSentinelAPI {
 
 declare global {
   interface Window {
-    electron: ElectronAPI
+    electron: SafeElectronAPI
     api: FocusSentinelAPI
   }
 }
+
+export {}
