@@ -50,6 +50,7 @@ function SignalMonitor(): React.JSX.Element {
   const [isMonitoring, setIsMonitoring] = useState(false)
   const [error, setError] = useState('')
   const [readings, setReadings] = useState<SignalReadings>(emptyReadings)
+  const [isSimulating, setIsSimulating] = useState(false)
 
   useEffect(() => {
     return () => {
@@ -61,6 +62,36 @@ function SignalMonitor(): React.JSX.Element {
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (!isSimulating) return
+
+    const generateReadings = (): void => {
+      setReadings({
+        breathingRate: {
+          value: Number((12 + Math.random() * 6).toFixed(1)),
+          confidence: 96,
+          stable: true
+        },
+        pulseRate: {
+          value: Number((65 + Math.random() * 20).toFixed(1)),
+          confidence: 95,
+          stable: true
+        },
+        hrv: {
+          value: Number((25 + Math.random() * 35).toFixed(1)),
+          confidence: 92,
+          stable: true
+        }
+      })
+    }
+
+    generateReadings()
+
+    const intervalId = window.setInterval(generateReadings, 2000)
+
+    return () => window.clearInterval(intervalId)
+  }, [isSimulating])
 
   const startMonitoring = async (): Promise<void> => {
     setError('')
@@ -140,7 +171,7 @@ function SignalMonitor(): React.JSX.Element {
           metricsPacketCount += 1
 
           // Log a snapshot every 100 decoded packets.
-          if (metricsPacketCount % 100 === 0) {
+          if (metricsPacketCount <= 3) {
             console.info('[SmartSpectra] Decoded metric snapshot:', {
               breathingRateCount: metrics.breathing?.rate?.length ?? 0,
               latestBreathing:
@@ -292,9 +323,9 @@ function SignalMonitor(): React.JSX.Element {
           <button
             className="primary-button"
             onClick={startMonitoring}
-            disabled={isStarting || isMonitoring}
+            disabled={isStarting || isMonitoring || isSimulating}
           >
-            {isStarting ? 'Connecting...' : 'Start monitoring'}
+            {isStarting ? 'Connecting...' : 'Start live monitoring'}
           </button>
 
           <button
@@ -302,7 +333,25 @@ function SignalMonitor(): React.JSX.Element {
             onClick={stopMonitoring}
             disabled={!isMonitoring && !isStarting}
           >
-            Stop monitoring
+            Stop live monitoring
+          </button>
+
+          <button
+            className="secondary-button"
+            onClick={() => {
+              if (isSimulating) {
+                setIsSimulating(false)
+                setStatus('Simulation stopped')
+              } else {
+                setError('')
+                setReadings(emptyReadings)
+                setStatus('Development simulation')
+                setIsSimulating(true)
+              }
+            }}
+            disabled={isMonitoring || isStarting}
+          >
+            {isSimulating ? 'Stop simulation' : 'Start simulation'}
           </button>
         </div>
 
@@ -320,6 +369,12 @@ function SignalMonitor(): React.JSX.Element {
       </article>
 
       <div className="signal-readings-grid">
+        {isSimulating && (
+          <div className="signal-error">
+            SIMULATED DATA: These values are generated for development testing only. They are not
+            live physiological measurements.
+          </div>
+        )}
         {renderReading('BREATHING RATE', readings.breathingRate, 'br/min')}
         {renderReading('PULSE RATE', readings.pulseRate, 'bpm')}
         {renderReading('HEART RATE VARIABILITY · RMSSD', readings.hrv, 'ms')}
