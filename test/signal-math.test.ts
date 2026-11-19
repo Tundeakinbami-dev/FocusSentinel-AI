@@ -69,10 +69,7 @@ describe('Signal Math & Waveform Normalization', () => {
         pulseRate >= 65.0 && pulseRate <= 85.0,
         `Pulse rate ${pulseRate} out of range [65, 85]`
       )
-      assert.ok(
-        hrv >= 25.0 && hrv <= 60.0,
-        `HRV ${hrv} out of range [25, 60]`
-      )
+      assert.ok(hrv >= 25.0 && hrv <= 60.0, `HRV ${hrv} out of range [25, 60]`)
     }
   })
 })

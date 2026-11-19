@@ -14,8 +14,9 @@ interface FocusSentinelAPI {
 
 declare global {
   interface Window {
-    electron: SafeElectronAPI
-    api: FocusSentinelAPI
+    electron?: SafeElectronAPI
+    api?: FocusSentinelAPI
+    __smartspectraBridge?: unknown
   }
 }
 

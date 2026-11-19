@@ -20,17 +20,11 @@ describe('SmartSpectra Protobuf Decoding', () => {
   it('correctly decodes cardio and breathing measurements with confidence and stability', () => {
     const payload = Metrics.create({
       breathing: {
-        rate: [
-          { value: 14.2, confidence: 85, stable: true, timestamp: 1700000000000 }
-        ]
+        rate: [{ value: 14.2, confidence: 85, stable: true, timestamp: 1700000000000 }]
       },
       cardio: {
-        pulseRate: [
-          { value: 72.5, confidence: 92, stable: true, timestamp: 1700000000000 }
-        ],
-        hrv: [
-          { rmssd: 42.0, confidence: 88, stable: true, timestamp: 1700000000000 }
-        ]
+        pulseRate: [{ value: 72.5, confidence: 92, stable: true, timestamp: 1700000000000 }],
+        hrv: [{ rmssd: 42.0, confidence: 88, stable: true, timestamp: 1700000000000 }]
       }
     })
     const encoded = Metrics.encode(payload).finish()
@@ -51,11 +45,8 @@ describe('SmartSpectra Protobuf Decoding', () => {
 
   it('rejects malformed or invalid buffer with error', () => {
     const corruptBuffer = new Uint8Array([0xff, 0xff, 0xff, 0xff, 0x00, 0x01])
-    assert.throws(
-      () => {
-        decodeMetrics(corruptBuffer)
-      },
-      /Error|illegal syntax/i
-    )
+    assert.throws(() => {
+      decodeMetrics(corruptBuffer)
+    }, /Error|illegal syntax/i)
   })
 })

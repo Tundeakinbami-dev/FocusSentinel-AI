@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useMonitoring } from '../context/useMonitoring'
 import { Reading } from '../context/types'
 
@@ -9,6 +9,7 @@ function SignalMonitor(): React.JSX.Element {
     isMonitoring,
     isSimulating,
     error,
+    validationHint,
     readings,
     signalHistory,
     mediaStream,
@@ -17,9 +18,14 @@ function SignalMonitor(): React.JSX.Element {
     setSelectedCameraId,
     startMonitoring,
     stopMonitoring,
-    toggleSimulation
+    toggleSimulation,
+    sessionElapsed,
+    sessionDuration,
+    isSessionComplete,
+    resetSession
   } = useMonitoring()
 
+  const [brightness, setBrightness] = useState<number>(135)
   const videoRef = useRef<HTMLVideoElement | null>(null)
 
   // Attach active media stream to local preview video element
@@ -126,7 +132,7 @@ function SignalMonitor(): React.JSX.Element {
                 borderRadius: '12px'
               }}
             >
-              {reading?.stable ? '● Stable' : '○ Calibrating'}
+              {isSessionComplete ? '● Captured' : reading?.stable ? '● Stable' : '○ Calibrating'}
             </span>
           )}
         </div>
@@ -208,30 +214,88 @@ function SignalMonitor(): React.JSX.Element {
           </div>
         )}
 
+        {isMonitoring && (
+          <div className="signal-session-progress">
+            <div className="session-progress-header">
+              <span>
+                Capturing vitals:{' '}
+                <strong>
+                  {sessionElapsed}s / {sessionDuration}s
+                </strong>
+              </span>
+              <span>{Math.round((sessionElapsed / sessionDuration) * 100)}%</span>
+            </div>
+            <div className="session-progress-track">
+              <div
+                className="session-progress-fill"
+                style={{ width: `${Math.min(100, (sessionElapsed / sessionDuration) * 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {isSessionComplete && (
+          <div className="signal-session-complete-banner">
+            <span className="complete-badge">✓ Captured</span>
+            <span>
+              Static physiological readings finalized after {sessionDuration}s. Camera stopped.
+            </span>
+          </div>
+        )}
+
         <div className="signal-actions">
-          <button
-            className="primary-button"
-            onClick={() => void startMonitoring()}
-            disabled={isStarting || isMonitoring || isSimulating}
-          >
-            {isStarting ? 'Connecting...' : 'Start live monitoring'}
-          </button>
+          {isSessionComplete ? (
+            <>
+              <button
+                className="primary-button"
+                onClick={() => void startMonitoring()}
+                disabled={isStarting}
+              >
+                Start new monitoring session
+              </button>
+              <button className="secondary-button" onClick={resetSession}>
+                Clear results
+              </button>
+              <button className="secondary-button" onClick={toggleSimulation}>
+                Start simulation
+              </button>
+            </>
+          ) : isMonitoring ? (
+            <>
+              <button className="primary-button" onClick={() => void stopMonitoring(true)}>
+                Capture & finish early
+              </button>
+              <button className="secondary-button" onClick={() => void stopMonitoring(false)}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="primary-button"
+                onClick={() => void startMonitoring()}
+                disabled={isStarting || isMonitoring || isSimulating}
+              >
+                {isStarting ? 'Connecting...' : 'Start live monitoring'}
+              </button>
 
-          <button
-            className="secondary-button"
-            onClick={() => void stopMonitoring()}
-            disabled={!isMonitoring && !isStarting}
-          >
-            Stop live monitoring
-          </button>
+              <button
+                className="secondary-button"
+                onClick={() => void stopMonitoring(false)}
+                disabled={!isMonitoring && !isStarting}
+              >
+                Stop live monitoring
+              </button>
 
-          <button
-            className="secondary-button"
-            onClick={toggleSimulation}
-            disabled={isMonitoring || isStarting}
-          >
-            {isSimulating ? 'Stop simulation' : 'Start simulation'}
-          </button>
+              <button
+                className="secondary-button"
+                onClick={toggleSimulation}
+                disabled={isMonitoring || isStarting}
+              >
+                {isSimulating ? 'Stop simulation' : 'Start simulation'}
+              </button>
+            </>
+          )}
         </div>
 
         {error && <p className="signal-error">{error}</p>}
@@ -240,13 +304,93 @@ function SignalMonitor(): React.JSX.Element {
       <article className="info-card signal-preview-card">
         <span className="card-label">CAMERA PREVIEW</span>
 
-        <video ref={videoRef} className="signal-video" autoPlay muted playsInline />
+        <video
+          ref={videoRef}
+          className="signal-video"
+          autoPlay
+          muted
+          playsInline
+          style={{
+            filter: `brightness(${brightness}%) contrast(1.06)`,
+            transform: 'scaleX(-1)'
+          }}
+        />
 
-        <p className="signal-reading-waiting">
-          {mediaStream
-            ? 'Camera active · Live monitoring in progress'
-            : 'The preview is active only during a monitoring session.'}
-        </p>
+        {validationHint && (
+          <div className="signal-validation-alert" role="status">
+            <span className="validation-alert-dot">●</span>
+            {validationHint}
+          </div>
+        )}
+
+        <div className="camera-preview-footer">
+          <p className="signal-reading-waiting">
+            {mediaStream
+              ? 'Camera active · Live monitoring in progress'
+              : isSessionComplete
+                ? 'Camera stopped · Results locked in'
+                : 'The preview is active only during a monitoring session.'}
+          </p>
+
+          {mediaStream && (
+            <div className="camera-brightness-controls">
+              <div className="brightness-header">
+                <span className="brightness-label">
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="5" />
+                    <line x1="12" y1="1" x2="12" y2="3" />
+                    <line x1="12" y1="21" x2="12" y2="23" />
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                    <line x1="1" y1="12" x2="3" y2="12" />
+                    <line x1="21" y1="12" x2="23" y2="12" />
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                  </svg>
+                  Brightness: <strong>{brightness}%</strong>
+                </span>
+                <div className="brightness-presets">
+                  {[100, 135, 170, 200].map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      className={`brightness-preset-btn ${brightness === level ? 'is-active' : ''}`}
+                      onClick={() => setBrightness(level)}
+                    >
+                      {level === 100
+                        ? '1x'
+                        : level === 135
+                          ? 'Boost'
+                          : level === 170
+                            ? 'High'
+                            : 'Max'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <input
+                type="range"
+                min="80"
+                max="220"
+                step="5"
+                value={brightness}
+                onChange={(e) => setBrightness(Number(e.target.value))}
+                className="brightness-range-slider"
+                aria-label="Adjust camera preview brightness"
+              />
+            </div>
+          )}
+        </div>
       </article>
 
       <div className="signal-readings-grid">

@@ -1247,6 +1247,72 @@ select:focus-visible {
   cursor: not-allowed;
 }
 
+/* Measurement Session Progress & Completion Banners */
+.signal-session-progress {
+  margin-top: 14px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  background: rgba(30, 116, 179, 0.05);
+  border: 1px solid rgba(30, 116, 179, 0.18);
+  border-radius: 10px;
+}
+
+.session-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+
+.session-progress-header strong {
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.session-progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(30, 116, 179, 0.12);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.session-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #1e74b3 0%, #4ee8c5 100%);
+  border-radius: 4px;
+  transition: width 1s linear;
+}
+
+.signal-session-complete-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #166534;
+}
+
+.complete-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #22c55e;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .signal-preview-card {
   min-width: 0;
   padding: 22px;
@@ -1266,6 +1332,101 @@ select:focus-visible {
   border-radius: 12px;
   background: #11222d var(--signal-preview-art) center/cover no-repeat;
   object-fit: cover;
+  transition: filter 180ms ease;
+}
+
+.signal-validation-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  line-height: 1.4;
+}
+
+.validation-alert-dot {
+  color: #d97706;
+  font-size: 10px;
+}
+
+.camera-preview-footer {
+  margin-top: 8px;
+}
+
+.camera-brightness-controls {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.brightness-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.brightness-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--ink-muted);
+  font-weight: 500;
+}
+
+.brightness-label svg {
+  color: #eab308;
+}
+
+.brightness-label strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.brightness-presets {
+  display: flex;
+  gap: 4px;
+}
+
+.brightness-preset-btn {
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.brightness-preset-btn:hover {
+  background: rgba(30, 116, 179, 0.08);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.brightness-preset-btn.is-active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+.brightness-range-slider {
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  background: #e2e8f0;
+  outline: none;
+  cursor: pointer;
+  accent-color: var(--primary);
 }
 
 /* =========================================
