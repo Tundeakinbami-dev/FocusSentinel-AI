@@ -52,7 +52,7 @@ A space for understanding permissions, consent, and data handling.
 Clone the repository and enter the project directory:
 
 ```bash
-git clone YOUR_REPOSITORY_URL
+git clone https://github.com/Tundeakinbami-dev/FocusSentinel-AI.git
 cd FocusSentinel-AI
 ```
 
