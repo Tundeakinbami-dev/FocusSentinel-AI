@@ -60,7 +60,9 @@ function createWindow(): void {
       if (parsedUrl.protocol === 'https:' || parsedUrl.protocol === 'http:') {
         shell.openExternal(details.url)
       } else {
-        console.warn(`[Security] Blocked external open request with unsafe protocol: ${parsedUrl.protocol}`)
+        console.warn(
+          `[Security] Blocked external open request with unsafe protocol: ${parsedUrl.protocol}`
+        )
       }
     } catch {
       console.warn(`[Security] Blocked malformed URL in setWindowOpenHandler: ${details.url}`)

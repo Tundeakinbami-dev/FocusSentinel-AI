@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-require('@smartspectra/node-sdk/preload')
+import '@smartspectra/node-sdk/preload'
 
 // Safe, restricted subset of electron metadata (excluding raw ipcRenderer and process.env)
 const safeElectron = {
@@ -15,8 +15,7 @@ const safeElectron = {
 
 // Custom APIs for renderer
 const api = {
-  getSmartSpectraApiKey: (): Promise<string> =>
-    ipcRenderer.invoke('smartspectra:get-api-key')
+  getSmartSpectraApiKey: (): Promise<string> => ipcRenderer.invoke('smartspectra:get-api-key')
 }
 
 // Ensure context isolation is active before exposing APIs

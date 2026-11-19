@@ -21,6 +21,10 @@ nsis:
 mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
+  target:
+    - target: dmg
+      arch:
+        - arm64
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device camera for physiological signal measurement.
   notarize: false

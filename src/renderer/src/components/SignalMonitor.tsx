@@ -1,265 +1,43 @@
-import { useEffect, useRef, useState } from 'react'
-import { SmartSpectraSDK, breathingMetrics, cardioMetrics } from '@smartspectra/node-sdk/renderer'
-import { decodeMetrics } from '@smartspectra/node-sdk/messages'
-
-interface Reading {
-  value: number | null
-  confidence: number | null
-  stable: boolean | null
-}
-
-interface SignalReadings {
-  breathingRate: Reading | null
-  pulseRate: Reading | null
-  hrv: Reading | null
-}
-
-const emptyReadings: SignalReadings = {
-  breathingRate: null,
-  pulseRate: null,
-  hrv: null
-}
-
-function getLatestReading(
-  values:
-    | {
-        value?: number | null
-        confidence?: number | null
-        stable?: boolean | null
-      }[]
-    | null
-    | undefined
-): Reading | null {
-  if (!values || values.length === 0) return null
-
-  const latest = values[values.length - 1]
-
-  return {
-    value: latest.value ?? null,
-    confidence: latest.confidence ?? null,
-    stable: latest.stable ?? null
-  }
-}
+import React, { useEffect, useRef } from 'react'
+import { useMonitoring } from '../context/useMonitoring'
+import { Reading } from '../context/types'
 
 function SignalMonitor(): React.JSX.Element {
-  const sdkRef = useRef<SmartSpectraSDK | null>(null)
+  const {
+    status,
+    isStarting,
+    isMonitoring,
+    isSimulating,
+    error,
+    readings,
+    signalHistory,
+    mediaStream,
+    cameraDevices,
+    selectedCameraId,
+    setSelectedCameraId,
+    startMonitoring,
+    stopMonitoring,
+    toggleSimulation
+  } = useMonitoring()
+
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const mediaStreamRef = useRef<MediaStream | null>(null)
 
-  const [status, setStatus] = useState('Not connected')
-  const [isStarting, setIsStarting] = useState(false)
-  const [isMonitoring, setIsMonitoring] = useState(false)
-  const [error, setError] = useState('')
-  const [readings, setReadings] = useState<SignalReadings>(emptyReadings)
-  const [isSimulating, setIsSimulating] = useState(false)
-  const [signalHistory, setSignalHistory] = useState({
-    breathingRate: [] as number[],
-    pulseRate: [] as number[],
-    hrv: [] as number[]
-  })
-
+  // Attach active media stream to local preview video element
   useEffect(() => {
+    const video = videoRef.current
+    if (video && mediaStream) {
+      video.srcObject = mediaStream
+      void video.play().catch(() => {})
+    } else if (video) {
+      video.srcObject = null
+    }
+
     return () => {
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((track) => track.stop())
-        mediaStreamRef.current = null
-      }
-
-      const sdk = sdkRef.current
-      sdkRef.current = null
-
-      if (sdk) {
-        sdk.destroy()
+      if (video) {
+        video.srcObject = null
       }
     }
-  }, [])
-
-  useEffect(() => {
-    if (!isSimulating) return
-
-    const generateReadings = (): void => {
-      const breathingRate = Number((12 + Math.random() * 6).toFixed(1))
-      const pulseRate = Number((65 + Math.random() * 20).toFixed(1))
-      const hrv = Number((25 + Math.random() * 35).toFixed(1))
-
-      setReadings({
-        breathingRate: { value: breathingRate, confidence: 96, stable: true },
-        pulseRate: { value: pulseRate, confidence: 95, stable: true },
-        hrv: { value: hrv, confidence: 92, stable: true }
-      })
-
-      setSignalHistory((previous) => ({
-        breathingRate: [...previous.breathingRate, breathingRate].slice(-20),
-        pulseRate: [...previous.pulseRate, pulseRate].slice(-20),
-        hrv: [...previous.hrv, hrv].slice(-20)
-      }))
-    }
-
-    generateReadings()
-
-    const intervalId = window.setInterval(generateReadings, 2000)
-
-    return () => window.clearInterval(intervalId)
-  }, [isSimulating])
-
-  const startMonitoring = async (): Promise<void> => {
-    setError('')
-    setReadings(emptyReadings)
-    setIsStarting(true)
-    setStatus('Connecting to SmartSpectra...')
-
-    try {
-      const apiKey = await window.api.getSmartSpectraApiKey()
-
-      const sdk = new SmartSpectraSDK({
-        apiKey,
-        requestedMetrics: [...breathingMetrics, ...cardioMetrics],
-        enableTelemetry: false
-      })
-
-      sdkRef.current = sdk
-
-      sdk.on('processingStatus', (status) => {
-        console.info('[SmartSpectra] Processing status:', status)
-      })
-
-      sdk.on('validationStatus', (code, timestampUs, hint) => {
-        console.info('[SmartSpectra] Validation status:', {
-          code,
-          timestampUs,
-          hint
-        })
-      })
-
-      sdk.on('frameSentThrough', (sent, timestampUs) => {
-        console.info('[SmartSpectra] Frame sent through:', {
-          sent,
-          timestampUs
-        })
-      })
-
-      sdk.on('streamAvailable', (stream) => {
-        mediaStreamRef.current = stream
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-
-          void videoRef.current.play().catch(() => {
-            setError('The camera preview could not start. Check camera permissions.')
-          })
-        }
-      })
-
-      sdk.on('metrics', (buffer) => {
-        try {
-          const metrics = decodeMetrics(buffer)
-
-          const latestHrv = metrics.cardio?.hrv
-
-          const hrvSample =
-            latestHrv && latestHrv.length > 0 ? latestHrv[latestHrv.length - 1] : null
-
-          const latestBreathing = getLatestReading(metrics.breathing?.rate)
-          const latestPulse = getLatestReading(metrics.cardio?.pulseRate)
-          const latestHrvReading = hrvSample
-            ? {
-                value: hrvSample.rmssd ?? null,
-                confidence: hrvSample.confidence ?? null,
-                stable: hrvSample.stable ?? null
-              }
-            : null
-
-          setReadings({
-            breathingRate: latestBreathing,
-            pulseRate: latestPulse,
-            hrv: latestHrvReading
-          })
-
-          setSignalHistory((prev) => ({
-            breathingRate:
-              latestBreathing?.value != null
-                ? [...prev.breathingRate, latestBreathing.value].slice(-20)
-                : prev.breathingRate,
-            pulseRate:
-              latestPulse?.value != null
-                ? [...prev.pulseRate, latestPulse.value].slice(-20)
-                : prev.pulseRate,
-            hrv:
-              latestHrvReading?.value != null
-                ? [...prev.hrv, latestHrvReading.value].slice(-20)
-                : prev.hrv
-          }))
-        } catch (caughtError) {
-          console.error('[SmartSpectra] Metrics decoding failed:', caughtError)
-
-          setError('A signal update could not be interpreted. Monitoring can continue.')
-        }
-      })
-
-      sdk.on('error', (_code, message) => {
-        setError(message || 'SmartSpectra reported an error.')
-        setStatus('Connection error')
-      })
-
-      await sdk.start()
-
-      setIsMonitoring(true)
-      setStatus('Monitoring')
-    } catch (caughtError) {
-      const message =
-        caughtError instanceof Error
-          ? caughtError.message
-          : 'Unable to start SmartSpectra monitoring.'
-
-      setError(message)
-      setStatus('Not connected')
-
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((track) => track.stop())
-        mediaStreamRef.current = null
-      }
-
-      const sdk = sdkRef.current
-      sdkRef.current = null
-
-      if (sdk) {
-        sdk.destroy()
-      }
-    } finally {
-      setIsStarting(false)
-    }
-  }
-
-  const stopMonitoring = async (): Promise<void> => {
-    const sdk = sdkRef.current
-
-    if (!sdk) return
-
-    setStatus('Stopping...')
-    setError('')
-
-    try {
-      await sdk.stop()
-    } catch {
-      setError('The monitoring session did not stop cleanly.')
-    } finally {
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((track) => track.stop())
-        mediaStreamRef.current = null
-      }
-
-      sdk.destroy()
-      sdkRef.current = null
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = null
-      }
-
-      setIsMonitoring(false)
-      setStatus('Not connected')
-      setReadings(emptyReadings)
-    }
-  }
+  }, [mediaStream])
 
   const renderReading = (
     label: string,
@@ -296,12 +74,16 @@ function SignalMonitor(): React.JSX.Element {
 
       const min = Math.min(...history)
       const max = Math.max(...history)
-      const range = max - min || 1
+      // Realistic baseline window: at least 10 bpm for pulse, 4 br/min for breathing, 15 ms for HRV
+      const minRange = type === 'pulse' ? 10 : type === 'breathing' ? 4 : 15
+      const range = Math.max(max - min, minRange)
+      const midpoint = (max + min) / 2
+      const baselineMin = midpoint - range / 2
 
       const points = history
         .map((value, index) => {
           const x = history.length === 1 ? 150 : (index / (history.length - 1)) * 300
-          const y = 55 - ((value - min) / range) * 45
+          const y = 55 - ((value - baselineMin) / range) * 45
           return `${x.toFixed(1)},${y.toFixed(1)}`
         })
         .join(' ')
@@ -312,7 +94,7 @@ function SignalMonitor(): React.JSX.Element {
             viewBox="0 0 300 65"
             className="signal-dynamic-chart"
             role="img"
-            aria-label={`${label} real-time graph`}
+            aria-label={`${label} real-time trend`}
           >
             <polyline
               points={points}
@@ -331,6 +113,22 @@ function SignalMonitor(): React.JSX.Element {
       <article className={`signal-reading reading-${type} ${isActive ? 'is-active' : ''}`}>
         <div className="signal-reading-header">
           <span className="card-label">{label}</span>
+          {isActive && (
+            <span
+              className={`status-pill ${reading?.stable ? 'pill-stable' : 'pill-calibrating'}`}
+              style={{
+                fontSize: '11px',
+                padding: '2px 8px',
+                backgroundColor: reading?.stable
+                  ? 'rgba(34, 197, 94, 0.15)'
+                  : 'rgba(234, 179, 8, 0.15)',
+                color: reading?.stable ? '#15803d' : '#a16207',
+                borderRadius: '12px'
+              }}
+            >
+              {reading?.stable ? '● Stable' : '○ Calibrating'}
+            </span>
+          )}
         </div>
 
         {renderGraph()}
@@ -338,12 +136,18 @@ function SignalMonitor(): React.JSX.Element {
         <div className="signal-reading-value">
           {isActive ? (
             <>
-              {reading.value?.toFixed(1)} <span>{unit}</span>
+              {reading?.value?.toFixed(1)} <span>{unit}</span>
             </>
           ) : (
             'Waiting for data'
           )}
         </div>
+
+        {isActive && reading?.confidence != null && (
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+            Quality: {Math.round(reading.confidence)}% confidence
+          </div>
+        )}
 
         {!isActive && (
           <p className="signal-reading-waiting">A reading will appear when the SDK provides one.</p>
@@ -358,7 +162,7 @@ function SignalMonitor(): React.JSX.Element {
         <span className="eyebrow">PRESAGE SMARTSPECTRA</span>
 
         <div className="large-status">
-          <span className={`status-dot ${isMonitoring ? 'online' : 'offline'}`} />
+          <span className={`status-dot ${isMonitoring || isSimulating ? 'online' : 'offline'}`} />
           {status}
         </div>
         {(isSimulating || status === 'Simulation stopped') && (
@@ -374,10 +178,40 @@ function SignalMonitor(): React.JSX.Element {
           while monitoring is active.
         </p>
 
+        {cameraDevices.length > 1 && (
+          <div style={{ marginBottom: '16px' }}>
+            <label
+              htmlFor="camera-select"
+              style={{ fontSize: '13px', color: '#475569', display: 'block', marginBottom: '6px' }}
+            >
+              Select Camera:
+            </label>
+            <select
+              id="camera-select"
+              value={selectedCameraId}
+              onChange={(e) => setSelectedCameraId(e.target.value)}
+              disabled={isMonitoring || isStarting}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '6px',
+                border: '1px solid #cbd5e1',
+                backgroundColor: '#ffffff',
+                fontSize: '13px'
+              }}
+            >
+              {cameraDevices.map((dev) => (
+                <option key={dev.deviceId} value={dev.deviceId}>
+                  {dev.label || `Camera ${dev.deviceId.slice(0, 8)}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div className="signal-actions">
           <button
             className="primary-button"
-            onClick={startMonitoring}
+            onClick={() => void startMonitoring()}
             disabled={isStarting || isMonitoring || isSimulating}
           >
             {isStarting ? 'Connecting...' : 'Start live monitoring'}
@@ -385,7 +219,7 @@ function SignalMonitor(): React.JSX.Element {
 
           <button
             className="secondary-button"
-            onClick={stopMonitoring}
+            onClick={() => void stopMonitoring()}
             disabled={!isMonitoring && !isStarting}
           >
             Stop live monitoring
@@ -393,17 +227,7 @@ function SignalMonitor(): React.JSX.Element {
 
           <button
             className="secondary-button"
-            onClick={() => {
-              if (isSimulating) {
-                setIsSimulating(false)
-                setStatus('Simulation stopped')
-              } else {
-                setError('')
-                setReadings(emptyReadings)
-                setStatus('Development simulation')
-                setIsSimulating(true)
-              }
-            }}
+            onClick={toggleSimulation}
             disabled={isMonitoring || isStarting}
           >
             {isSimulating ? 'Stop simulation' : 'Start simulation'}
@@ -419,7 +243,9 @@ function SignalMonitor(): React.JSX.Element {
         <video ref={videoRef} className="signal-video" autoPlay muted playsInline />
 
         <p className="signal-reading-waiting">
-          The preview is active only during a monitoring session.
+          {mediaStream
+            ? 'Camera active · Live monitoring in progress'
+            : 'The preview is active only during a monitoring session.'}
         </p>
       </article>
 
@@ -437,13 +263,7 @@ function SignalMonitor(): React.JSX.Element {
           signalHistory.breathingRate,
           'breathing'
         )}
-        {renderReading(
-          'PULSE RATE',
-          readings.pulseRate,
-          'bpm',
-          signalHistory.pulseRate,
-          'pulse'
-        )}
+        {renderReading('PULSE RATE', readings.pulseRate, 'bpm', signalHistory.pulseRate, 'pulse')}
         {renderReading(
           'HEART RATE VARIABILITY · RMSSD',
           readings.hrv,
@@ -458,8 +278,8 @@ function SignalMonitor(): React.JSX.Element {
 
         <p>
           These are sensor-derived measurements, not medical diagnoses. Confidence and stability
-          describe signal quality, not the likelihood of a medical emergency. Focus Sentinel does
-          not automatically contact emergency services based on these readings.
+          describe signal quality, not the likelihood of a medical emergency. FocusTellisense AI
+          does not automatically contact emergency services based on these readings.
         </p>
       </article>
     </section>
