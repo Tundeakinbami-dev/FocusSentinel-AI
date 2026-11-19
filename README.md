@@ -2,31 +2,59 @@
 
 **Stay aware. Stay in control.**
 
-FocusSentinel AI is an intelligent personal awareness application designed to support everyday focus, wellbeing, and safety.
+FocusSentinel AI is an experimental desktop application exploring how physiological signals and human-centred assistance workflows can support everyday awareness, wellbeing, and safety.
 
 ## Core Features
 
-### FocusSense
+### 1. FocusSense
 A dedicated workspace for focus sessions, intentional breaks, and everyday productivity.
 
-### Sentinel Safety
+### 2. Sentinel Safety
 A space for safety check-ins and user-initiated requests for assistance.
 
-### SmartSense
-A signal-monitoring area designed for integration with the Presage SmartSpectra SDK.
+### 3. SmartSense: Presage SmartSpectra
+An integration with the Presage SmartSpectra SDK designed to process three physiological signals:
 
-### Privacy Centre
-A transparent place to understand permissions, consent, and how personal data is handled.
+- Breathing rate
+- Pulse rate
+- Heart rate variability (HRV/RMSSD)
 
-## Technology
+The Signal Monitor includes:
+
+- Camera preview during live monitoring.
+- Signal readings with confidence and stability indicators.
+- Development simulation mode for demonstrations.
+- Trend charts showing the latest 20 simulated samples for each signal.
+
+**Important:** Simulated readings are generated test data. They are not real physiological measurements and must not be used for health decisions or emergency detection.
+
+Live measurement requires a valid SmartSpectra configuration and available measurement credits. Live measurement has not been verified in this demonstration.
+
+### 4. Privacy Centre
+A space for understanding permissions, consent, and data handling.
+
+## Technology Stack
 
 - Electron
 - React
 - TypeScript
 - Vite
-- Presage SmartSpectra SDK (integration in progress)
+- Presage SmartSpectra Node SDK
 
 ## Getting Started
+
+### Requirements
+- Node.js
+- npm
+
+### Installation
+
+Clone the repository and enter the project directory:
+
+```bash
+git clone YOUR_REPOSITORY_URL
+cd FocusSentinel-AI
+```
 
 Install dependencies:
 
@@ -34,13 +62,15 @@ Install dependencies:
 npm install
 ```
 
-Start the development application:
+Start the application:
 
 ```bash
 npm run dev
 ```
 
-Run type checks and build:
+### Production Build
+
+Run type checks and generate the production build:
 
 ```bash
 npm run build
@@ -48,12 +78,35 @@ npm run build
 
 ## Project Status
 
-The initial desktop application and dashboard are implemented.
+The following components are implemented:
 
-Presage SmartSpectra integration, live signal processing, and associated consent workflows are still in development.
+- Desktop application and dashboard.
+- FocusSense workspace.
+- Sentinel Safety interface.
+- Privacy Centre interface.
+- SmartSpectra SDK integration.
+- Signal monitoring interface.
+- Development simulation mode.
+- Three simulated signal trend charts.
+
+Live SmartSpectra measurement has not been verified for this demonstration because measurement credits are currently exhausted.
+
+The simulation mode allows the application to demonstrate the signal-monitoring experience without consuming measurement credits.
 
 ## Privacy and Safety
 
-FocusSentinel AI is designed around user consent and privacy.
+- Camera access is intended for user-initiated live monitoring.
+- Simulation mode generates synthetic values, not actual physiological measurements.
+- Confidence and stability indicators describe signal quality, not medical risk.
+- The application does not provide medical diagnoses.
+- The current prototype does not automatically contact emergency services or trusted contacts.
 
-The current prototype does not contact emergency services or trusted contacts. It does not provide medical diagnoses.
+## Disclaimer
+
+FocusSentinel AI is an experimental prototype for demonstration and development.
+
+It is not a medical device and must not be relied upon for diagnosis, treatment, or emergency response.
+
+## Development
+
+Contributions, testing, and feedback are welcome as the project evolves.

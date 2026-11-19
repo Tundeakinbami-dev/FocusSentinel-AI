@@ -738,3 +738,42 @@ nav {
     grid-column: auto;
   }
 }
+
+
+/* Simulated signal trend charts */
+
+.signal-trends-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.signal-trend-card {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid #243140;
+  border-radius: 13px;
+  background: #121b27;
+}
+
+.signal-trend-card svg {
+  display: block;
+  width: 100%;
+  height: 100px;
+  margin-top: 14px;
+  overflow: visible;
+}
+
+.signal-trend-count {
+  display: block;
+  margin-top: 8px;
+  color: #8999aa;
+  font-size: 10px;
+}
+
+@media (max-width: 800px) {
+  .signal-trends-grid {
+    grid-template-columns: 1fr;
+  }
+}

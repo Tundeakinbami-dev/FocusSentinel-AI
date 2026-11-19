@@ -51,6 +51,11 @@ function SignalMonitor(): React.JSX.Element {
   const [error, setError] = useState('')
   const [readings, setReadings] = useState<SignalReadings>(emptyReadings)
   const [isSimulating, setIsSimulating] = useState(false)
+  const [signalHistory, setSignalHistory] = useState({
+    breathingRate: [] as number[],
+    pulseRate: [] as number[],
+    hrv: [] as number[]
+  })
 
   useEffect(() => {
     return () => {
@@ -67,23 +72,21 @@ function SignalMonitor(): React.JSX.Element {
     if (!isSimulating) return
 
     const generateReadings = (): void => {
+      const breathingRate = Number((12 + Math.random() * 6).toFixed(1))
+      const pulseRate = Number((65 + Math.random() * 20).toFixed(1))
+      const hrv = Number((25 + Math.random() * 35).toFixed(1))
+
       setReadings({
-        breathingRate: {
-          value: Number((12 + Math.random() * 6).toFixed(1)),
-          confidence: 96,
-          stable: true
-        },
-        pulseRate: {
-          value: Number((65 + Math.random() * 20).toFixed(1)),
-          confidence: 95,
-          stable: true
-        },
-        hrv: {
-          value: Number((25 + Math.random() * 35).toFixed(1)),
-          confidence: 92,
-          stable: true
-        }
+        breathingRate: { value: breathingRate, confidence: 96, stable: true },
+        pulseRate: { value: pulseRate, confidence: 95, stable: true },
+        hrv: { value: hrv, confidence: 92, stable: true }
       })
+
+      setSignalHistory((previous) => ({
+        breathingRate: [...previous.breathingRate, breathingRate].slice(-20),
+        pulseRate: [...previous.pulseRate, pulseRate].slice(-20),
+        hrv: [...previous.hrv, hrv].slice(-20)
+      }))
     }
 
     generateReadings()
@@ -302,6 +305,46 @@ function SignalMonitor(): React.JSX.Element {
     </article>
   )
 
+  const renderTrend = (label: string, values: number[]): React.JSX.Element => {
+    if (values.length === 0) {
+      return (
+        <article className="signal-trend-card">
+          <span className="card-label">{label}</span>
+          <p className="signal-reading-waiting">Waiting for simulated samples</p>
+        </article>
+      )
+    }
+
+    const min = Math.min(...values)
+    const max = Math.max(...values)
+    const range = max - min || 1
+
+    const points = values
+      .map((value, index) => {
+        const x = values.length === 1 ? 150 : (index / (values.length - 1)) * 300
+        const y = 70 - ((value - min) / range) * 60
+        return `${x},${y}`
+      })
+      .join(' ')
+
+    return (
+      <article className="signal-trend-card">
+        <span className="card-label">{label}</span>
+        <svg viewBox="0 0 300 80" role="img" aria-label={`${label} simulated trend`}>
+          <polyline
+            points={points}
+            fill="none"
+            stroke="#6de2bd"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <span className="signal-trend-count">{values.length} samples</span>
+      </article>
+    )
+  }
+
   return (
     <section className="signal-monitor-layout">
       <article className="info-card signal-card">
@@ -311,6 +354,11 @@ function SignalMonitor(): React.JSX.Element {
           <span className={`status-dot ${isMonitoring ? 'online' : 'offline'}`} />
           {status}
         </div>
+        {(isSimulating || status === 'Simulation stopped') && (
+          <span className="eyebrow" style={{ color: '#d97706' }}>
+            DEVELOPMENT SIMULATION · NOT LIVE DATA
+          </span>
+        )}
 
         <h3>Live physiological signal monitoring</h3>
 
@@ -369,7 +417,7 @@ function SignalMonitor(): React.JSX.Element {
       </article>
 
       <div className="signal-readings-grid">
-        {isSimulating && (
+        {(isSimulating || status === 'Simulation stopped') && (
           <div className="signal-error">
             SIMULATED DATA: These values are generated for development testing only. They are not
             live physiological measurements.
@@ -379,6 +427,14 @@ function SignalMonitor(): React.JSX.Element {
         {renderReading('PULSE RATE', readings.pulseRate, 'bpm')}
         {renderReading('HEART RATE VARIABILITY · RMSSD', readings.hrv, 'ms')}
       </div>
+
+      {(isSimulating || status === 'Simulation stopped') && (
+        <div className="signal-trends-grid">
+          {renderTrend('BREATHING RATE TREND · SIMULATED', signalHistory.breathingRate)}
+          {renderTrend('PULSE RATE TREND · SIMULATED', signalHistory.pulseRate)}
+          {renderTrend('HRV TREND · SIMULATED', signalHistory.hrv)}
+        </div>
+      )}
 
       <article className="info-card signal-disclaimer">
         <span className="card-label">UNDERSTANDING THESE READINGS</span>
